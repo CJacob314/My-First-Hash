@@ -1,7 +1,20 @@
 #include "hashing.h"
 
 void Hashing::clearState(){
-    memset((void*)state, 0x00, STATE_BUF_LEN);
+    
+    if(!*stateDefault){
+        char fullHexData[] = "AC13CC29789CECA70263EEE1E05090";
+
+        for(uint8_t j = 0; j < 15; j++) {
+            sscanf(fullHexData + j * 2, "%02hhX", stateDefault + j);
+        }
+    }
+
+
+    memcpy((void*)state, (const void*)&stateDefault, STATE_BUF_LEN);
+
+
+    // memset((void*)state, 0x00, STATE_BUF_LEN);
 }
 
 void Hashing::hash(char output[STATE_BUF_LEN], const char* input, const int length){
@@ -15,8 +28,20 @@ void Hashing::hash(char output[STATE_BUF_LEN], const char* input, const int leng
         unsigned char cbyte = paddedInput[i];
 
         // Overflows in the state-buffer are INTENTIONAL to make reversal SLIGHTLY more difficult
-        state[i % STATE_BUF_LEN] += (cbyte ^ (lbyte | 0x1)) + *(&cbyte + 1) | ~lbyte;
-		lbyte = state[i % STATE_BUF_LEN] ^ lbyte;
+        state[i % STATE_BUF_LEN] += (cbyte ^ (lbyte)) + *(&cbyte + 1) | ~lbyte;
+
+        // Below lines are INSPIRED by MD6's compression function as listed in the MIT paper: https://people.csail.mit.edu/rivest/pubs/RABCx08.pdf
+        state[RING_BUF_INDEX(i)] ^= (state[RING_BUF_INDEX(i - 1)] ^ state[RING_BUF_INDEX(i - 2)]) ^ state[RING_BUF_INDEX(i - 3)];
+
+        state[RING_BUF_INDEX(i)] ^= (state[RING_BUF_INDEX(i)] >> COMPRESSION_SHIFTS[(uint8_t)((cbyte) & 0xF % 5)]);
+                                                        // Grab least significantt 4 bits from cbyte, then modulo 5 to index the shift array (no zero shifts!).
+                                                        // XOR the current state byte with the shifted state byte to add more pseudo-randomness.
+                                                        // Still NOT injective. "1235" and "1234" have the same hash!
+                                                        // And now I have discovered the concept of a "Random Oracle" and have just realized that it is IMPOSSIBLE for a FINITE length bit-string codomain
+                                                        // to NOT have collisions over the uncountably infinite domain of ALL binary strings.
+
+                                                        // The aim now will be to MINIMIZE collisions.
+		lbyte = state[RING_BUF_INDEX(i)] ^ lbyte;
     }
 
     delete[] paddedInput;
