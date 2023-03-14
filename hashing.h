@@ -1,10 +1,12 @@
 #include <string.h>
 #include <cstdint>
 
+#define STATE_BUF_LEN 15
+
 class Hashing {
     private:
 
-    inline static unsigned char state[15];
+    inline static unsigned char state[STATE_BUF_LEN];
 
     static void clearState();
 
@@ -13,5 +15,5 @@ class Hashing {
 
     public:
 
-    static void hash(char output[15], const char* input, const int length);
+    static void hash(char output[STATE_BUF_LEN], const char* input, const int length);
 };

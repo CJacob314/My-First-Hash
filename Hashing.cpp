@@ -1,10 +1,10 @@
 #include "hashing.h"
 
 void Hashing::clearState(){
-    memset((void*)state, 0x00, 5);
+    memset((void*)state, 0x00, STATE_BUF_LEN);
 }
 
-void Hashing::hash(char output[15], const char* input, const int length){
+void Hashing::hash(char output[STATE_BUF_LEN], const char* input, const int length){
     clearState();
 
     uint32_t newLength = 0;
@@ -15,13 +15,13 @@ void Hashing::hash(char output[15], const char* input, const int length){
         unsigned char cbyte = paddedInput[i];
 
         // Overflows in the state-buffer are INTENTIONAL to make reversal SLIGHTLY more difficult
-        state[i%15] += (cbyte ^ (lbyte | 0x1)) + *(&cbyte + 1) | ~lbyte;
-		lbyte = state[i % 15] ^ lbyte;
+        state[i % STATE_BUF_LEN] += (cbyte ^ (lbyte | 0x1)) + *(&cbyte + 1) | ~lbyte;
+		lbyte = state[i % STATE_BUF_LEN] ^ lbyte;
     }
 
     delete[] paddedInput;
 
-    memcpy(output, state, 15);
+    memcpy(output, state, STATE_BUF_LEN);
 }
 
 char* Hashing::padInput(const char* input, const uint32_t length, uint32_t& newLength){
