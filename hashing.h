@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #define STATE_BUF_LEN 15
+#define PASSES 16
 #define RING_BUF_INDEX(i) (signed int)i % STATE_BUF_LEN < 0 ? (signed int)i % STATE_BUF_LEN + STATE_BUF_LEN : (signed int)i % STATE_BUF_LEN
 
 typedef unsigned __int128 uint128_t; // This did not work the way I wanted, so I am storing the default state value in a char buffer instead.

@@ -24,24 +24,23 @@ void Hashing::hash(char output[STATE_BUF_LEN], const char* input, const int leng
     char* paddedInput = padInput(input, length, newLength);
 
     unsigned char lbyte = 0x57; // Initalized to 0x57 to start, why not.
-    for(uint32_t i = 0; i < newLength; i++){
-        unsigned char cbyte = paddedInput[i];
+    for(uint8_t i = 0; i < PASSES; i++){
 
-        // Overflows in the state-buffer are INTENTIONAL to make reversal SLIGHTLY more difficult
-        state[i % STATE_BUF_LEN] += (cbyte ^ (lbyte)) + *(&cbyte + 1) | ~lbyte;
+        for(uint32_t i = 0; i < newLength; i++){
+            unsigned char cbyte = paddedInput[i];
 
-        // Below lines are INSPIRED by MD6's compression function as listed in the MIT paper: https://people.csail.mit.edu/rivest/pubs/RABCx08.pdf
-        state[RING_BUF_INDEX(i)] ^= (state[RING_BUF_INDEX(i - 1)] ^ state[RING_BUF_INDEX(i - 2)]) ^ state[RING_BUF_INDEX(i - 3)];
+            // Overflows in the state-buffer are INTENTIONAL to make reversal SLIGHTLY more difficult
+            state[RING_BUF_INDEX(i)] += (cbyte ^ (lbyte)) + *(&cbyte + 1) | ~lbyte;
 
-        state[RING_BUF_INDEX(i)] ^= (state[RING_BUF_INDEX(i)] >> COMPRESSION_SHIFTS[(uint8_t)((cbyte) & 0xF % 5)]);
-                                                        // Grab least significantt 4 bits from cbyte, then modulo 5 to index the shift array (no zero shifts!).
-                                                        // XOR the current state byte with the shifted state byte to add more pseudo-randomness.
-                                                        // Still NOT injective. "1235" and "1234" have the same hash!
-                                                        // And now I have discovered the concept of a "Random Oracle" and have just realized that it is IMPOSSIBLE for a FINITE length bit-string codomain
-                                                        // to NOT have collisions over the uncountably infinite domain of ALL binary strings.
+            // Below lines are INSPIRED by MD6's compression function as listed in the MIT paper: https://people.csail.mit.edu/rivest/pubs/RABCx08.pdf
+            state[RING_BUF_INDEX(i)] ^= (state[RING_BUF_INDEX(i - 1)] ^ state[RING_BUF_INDEX(i - 2)]) ^ state[RING_BUF_INDEX(i - 3)];
 
-                                                        // The aim now will be to MINIMIZE collisions.
-		lbyte = state[RING_BUF_INDEX(i)] ^ lbyte;
+            state[RING_BUF_INDEX(i)] ^= (state[RING_BUF_INDEX(i)] >> COMPRESSION_SHIFTS[(uint8_t)((cbyte) & 0xF % 5)]);
+                                                            // Grab least significantt 4 bits from cbyte, then modulo 5 to index the shift array (no zero shifts!).
+                                                            // XOR the current state byte with the shifted state byte to add more pseudo-randomness.
+            lbyte = state[RING_BUF_INDEX(i)] ^ lbyte;
+        }
+        
     }
 
     delete[] paddedInput;
