@@ -34,7 +34,7 @@ int main(int argc, char* argv[]){
     std::unordered_map<std::string, std::string> map; // Storing hashes as strings for easy heap allocation
     char hashed[16] = {'\0'};
     // Generate all strings of length 1-4
-    for(uint8_t len = 0; len < 4; len++){
+    for(uint8_t len = 0; len < 10; len++){
         __strGenRecHelper(map, "", len);
     }
     
@@ -83,7 +83,6 @@ void __strGenRecHelper(std::unordered_map<std::string, std::string>& map, std::s
             char* hashHex = toHex(hashed, 15);
             printf("Collision found after %lu elements! Input strings \"%s\" and \"%s\" both hash to (hex bytes) 0x%s\n", map.size(), map[hashStr].c_str(), prefix.c_str(), hashHex);
             delete[] hashHex;
-            exit(0);
         }
 
         insert(map, static_cast<std::string>(hashStr), std::string(prefix));
