@@ -38,7 +38,7 @@ void Hashing::hash(char output[STATE_BUF_LEN], const char* input, const int leng
             state[RING_BUF_INDEX(i)] ^= (state[RING_BUF_INDEX(i)] >> COMPRESSION_SHIFTS[(uint8_t)((cbyte) & 0xF % 5)]);
                                                             // Grab least significantt 4 bits from cbyte, then modulo 5 to index the shift array (no zero shifts!).
                                                             // XOR the current state byte with the shifted state byte to add more pseudo-randomness.
-            lbyte = state[RING_BUF_INDEX(i)] ^ lbyte;
+            lbyte = state[RING_BUF_INDEX(i)]; // Pushes back the first found collision by 10,000. But it is still at 3 characters. 4 characters is the next milestone!
         }
         
     }

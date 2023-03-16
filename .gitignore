@@ -1,5 +1,10 @@
+# VSCode directory
 .vscode
 .vscode/**
 
+# Testing executables (clutter)
 ./test
 test
+
+# TXT files to store collisions detected with different versions of the hashing function
+*collisions*.txt
