@@ -1,8 +1,10 @@
-# My First Hashing Algorith
+# My First Hashing Algorithm
 
 This was heavily inspired by SHA-1 and MD6, though it uses much different bit-math.
 
-This is **not** a cryptographic hash function, and collisions are currently **way too common**!
+Please note, this is <u>**not** a *cryptographic* hash function</u>!
 
 ## Current Smallest-Length Collision
-ASCII strings `!^L` and `!^M` both hash to hex: `0x27883D9C714DD1EA3180A5F5BCB057`
+I have **not yet found a collision** this new version! The birthday attack has so far tested 22,800,000 32-byte strings (not just printable characters), and the old ascending-order printable-characters has not found one after 35,900,000 strings tested!
+
+Then again, if it were a random oracle, to have 50% probaility of a collision I would need to get that number to 1,152,921,504,606,846,976 strings tested...

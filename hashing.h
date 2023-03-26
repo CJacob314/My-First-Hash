@@ -12,13 +12,15 @@ class Hashing {
     private:
 
     inline static unsigned char state[STATE_BUF_LEN];
-    inline static uint8_t COMPRESSION_SHIFTS[5] = {6, 3, 5, 1, 2};
-    inline static unsigned char stateDefault[STATE_BUF_LEN] = {0x0};
+    inline static uint8_t COMPRESSION_SHIFTS[5] = {5, 3, 5, 3, 5};
+
+    // Hex: 0xBA238C4E384DC1CAA1A478FF5FCEF7
+    inline static uint8_t stateDefault[STATE_BUF_LEN] = {0xBA, 0x23, 0x8C, 0x4E, 0x38, 0x4D, 0xC1, 0xCA, 0xA1, 0xA4, 0x78, 0xFF, 0x5F, 0xCE, 0xF7};
 
     static void clearState();
 
     // Must be freed by the caller
-    static char* padInput(const char* input, const uint32_t length, uint32_t& newLength);
+    static unsigned char* padInput(const char* input, const uint32_t length, uint32_t& newLength);
 
     public:
 

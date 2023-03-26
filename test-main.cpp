@@ -1,4 +1,5 @@
 #include "hashing.h"
+#include "include/SHA256/SHA256.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -12,22 +13,47 @@
 using std::cout;
 
 #define START_MSG "Starting hash algorithm tests...\n" \
-                  "Note that this is my first version of my first ever hashing algorithm, and is not by any means cryptographically secure. I intend to use it to compare files and things of that nature.\n" \
-                  "This algorithm is coded in c++, using an unsigned character buffer as a state. Very basic bitmath is used to manipulate the state, allowing overflows so that reversal is SOMEWHAT more difficult.\n" \
+                  "Note that this is my first ever hashing algorithm, and is not by any means cryptographically secure. I intend to use it to compare files and things of that nature.\n" \
+                  "This algorithm is coded in c++, using an byte buffer state. Very basic bitmath is used to manipulate the state, allowing overflows so that reversal is SOMEWHAT more difficult.\n" \
                   "Enter strings to hash, or Ctrl+D to exit:"
 
 char* toHex(const char* s, size_t len);
 void interrupt(int signum);
-void doInteractive();
-void __strGenRecHelper(std::unordered_map<std::string, std::string>& map, std::string prefix, uint8_t len);
+void doInteractive(int withSHA256 = 0);
+void __strGenRecHelper(std::unordered_map<std::string, std::string>& map, std::string prefix, uint8_t len, short withSHA256 = 0);
+void doBirthdayAttack();
 
 int main(int argc, char* argv[]){
     signal(SIGINT, interrupt);
+    srand(time(NULL));
 
+    if(argc > 1){
+        if(!strcmp(argv[1], "-i")){
+            if(argc > 2 && (!strcmp(argv[2], "sha256") || !strcmp(argv[2], "SHA256")))
+                doInteractive(1);
+            else
+                doInteractive(0);
 
-    if(argc > 1 && !strcmp(argv[1], "-i")){
-        doInteractive();
-        return 0;
+            return 0;
+        }
+
+        // SHA256 executable compiled from: https://github.com/System-Glitch/SHA256.git
+        // Thank you to GitHub users System-Glitch, Lambourl, LeStahL (Alexander Kraus)
+        if(!strcmp(argv[1], "sha256") || !strcmp(argv[1], "SHA256")){
+            puts("Generating all strings of length 1-10 (with printable ASCII characters) and hashing them WITH SHA256...");
+            std::unordered_map<std::string, std::string> map; // Storing hashes as strings for easy heap allocation
+            char hashed[16] = {'\0'};
+            // Generate all strings of length 1-4
+            for(uint8_t len = 0; len < 10; len++){
+                __strGenRecHelper(map, "", len, 1);
+            }
+
+            return 0;
+        }
+
+        if(!strcmp(argv[1], "birthday")){
+            doBirthdayAttack();
+        }
     }
 
     puts("Generating all strings of length 1-10 (with printable ASCII characters) and hashing them...");
@@ -38,9 +64,6 @@ int main(int argc, char* argv[]){
         __strGenRecHelper(map, "", len);
     }
     
-
-    srand(time(NULL));
-
     return 0;
 }
 
@@ -57,26 +80,49 @@ void interrupt(int signum){
     exit(0);
 }
 
-void doInteractive(){
+void doInteractive(int withSHA256){
     puts(START_MSG);
 
     char hashed[16] = {'\0'};
 
     for(std::string s; getline(std::cin, s);){
-        Hashing::hash(hashed, s.c_str(), s.length());
-        char* hex;
-        printf("Hash of \"%s\": %s\n", s.c_str(), hex = toHex(hashed, 15));
-        delete[] hex;
+
+        if(!withSHA256){
+            Hashing::hash(hashed, s.c_str(), s.length());
+            char* hex;
+            printf("Hash of \"%s\": %s\n", s.c_str(), hex = toHex(hashed, 15));
+            delete[] hex;
+        } else {
+            SHA256 sha256;
+            sha256.update(s);
+            uint8_t* digest = sha256.digest();
+            cout << "Hash of \"" << s << "\": " << SHA256::toString(digest) << "\n";
+            delete[] digest;
+        }
     }
     
     puts("Exiting...");
 }
 
-void __strGenRecHelper(std::unordered_map<std::string, std::string>& map, std::string prefix, uint8_t len){
+void __strGenRecHelper(std::unordered_map<std::string, std::string>& map, std::string prefix, uint8_t len, short withSHA256){
+    if(map.size() && map.size() % 100000 == 0){
+        printf("[MILESTONE] Generated %lu strings so far! Currently on string \"%s\"\n", map.size(), prefix.c_str());
+    }
+    
     if(len == 0){
         char hashed[16] = {'\0'};
-        Hashing::hash(hashed, prefix.c_str(), prefix.length());
-        std::string hashStr(hashed, 15);
+        
+        std::string hashStr;
+        if(!withSHA256){
+            Hashing::hash(hashed, prefix.c_str(), prefix.length());
+            hashStr = std::string(hashed, 15);
+        } else {
+            SHA256 sha256;
+            sha256.update(prefix);
+            uint8_t* digest = sha256.digest();
+            hashStr = std::string(SHA256::toString(digest));
+            delete[] digest;
+        }
         
         // Check if hash already exists in map, and if so, print out the collision generating input strings.
         if(map.find(hashStr) != map.end()){
@@ -93,6 +139,38 @@ void __strGenRecHelper(std::unordered_map<std::string, std::string>& map, std::s
     for (uint16_t i = 33; i <= 126; i++){
         std::string newPrefix = prefix + (char)(i);
 
-        __strGenRecHelper(map, newPrefix, len - 1);
+        __strGenRecHelper(map, newPrefix, len - 1, withSHA256);
+    }
+}
+
+void doBirthdayAttack(){
+    cout << "Starting birthday attack on my hash function. Will update every 100,000 tries.\n";
+    uint32_t tries = 0;
+    std::unordered_map<std::string, std::string> map;
+
+    char data[32];
+    char hash[STATE_BUF_LEN];
+
+    while(1){
+        for(int i = 0; i < 32; i++)
+            data[i] = rand() % 256;
+
+        Hashing::hash(hash, data, 32);
+
+        std::string hashStr = std::string(hash, STATE_BUF_LEN);
+        if(map.find(hashStr) != map.end()){
+            char* hex;
+            cout << "Collision found after " << tries << " tries! Input strings \"" << map[hashStr] << "\" and \"" << (hex = toHex(data, 32)) << "\" both hash to (hex bytes) 0x" << toHex(hash, STATE_BUF_LEN) << "\n";
+            delete[] hex;
+            return;
+        }
+
+        tries++;
+
+        if(tries % 100000 == 0){
+            char* hex;
+            printf("[BIRTHDAY MILESTONE] %u tries so far! Currently on string 0x%s\n", tries, (hex = toHex(data, 32)));
+            delete[] hex;
+        }
     }
 }
