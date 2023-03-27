@@ -7,6 +7,8 @@
 #include <csignal>
 #include <cstdlib>
 #include <unordered_map>
+#include <random>
+#include <limits.h>
 
 #define insert(map, k, v) map.insert(std::make_pair<std::string, std::string>(k, v))
 
@@ -37,12 +39,12 @@ int main(int argc, char* argv[]){
             return 0;
         }
 
-        // SHA256 executable compiled from: https://github.com/System-Glitch/SHA256.git
+        // SHA256 code from: https://github.com/System-Glitch/SHA256.git
         // Thank you to GitHub users System-Glitch, Lambourl, LeStahL (Alexander Kraus)
         if(!strcmp(argv[1], "sha256") || !strcmp(argv[1], "SHA256")){
             puts("Generating all strings of length 1-10 (with printable ASCII characters) and hashing them WITH SHA256...");
             std::unordered_map<std::string, std::string> map; // Storing hashes as strings for easy heap allocation
-            char hashed[16] = {'\0'};
+
             // Generate all strings of length 1-4
             for(uint8_t len = 0; len < 10; len++){
                 __strGenRecHelper(map, "", len, 1);
@@ -58,7 +60,7 @@ int main(int argc, char* argv[]){
 
     puts("Generating all strings of length 1-10 (with printable ASCII characters) and hashing them...");
     std::unordered_map<std::string, std::string> map; // Storing hashes as strings for easy heap allocation
-    char hashed[16] = {'\0'};
+    
     // Generate all strings of length 1-4
     for(uint8_t len = 0; len < 10; len++){
         __strGenRecHelper(map, "", len);
@@ -144,33 +146,46 @@ void __strGenRecHelper(std::unordered_map<std::string, std::string>& map, std::s
 }
 
 void doBirthdayAttack(){
-    cout << "Starting birthday attack on my hash function. Will update every 100,000 tries.\n";
+    cout << "Starting birthday attack on my hash function. Will update every 10,000 tries.\n";
+    std::random_device rd;
+    std::uniform_int_distribution<uint16_t> lenGen(10, 1000); // Reduced from 10000 to increase speed
+    std::uniform_int_distribution<unsigned long long> gen(10, ULLONG_MAX);
+
     uint32_t tries = 0;
     std::unordered_map<std::string, std::string> map;
 
-    char data[32];
     char hash[STATE_BUF_LEN];
 
     while(1){
-        for(int i = 0; i < 32; i++)
-            data[i] = rand() % 256;
+        uint16_t len = lenGen(rd);
+        char* data = new char[len * sizeof(unsigned long long)];
+        for(int i = 0; i < len; i++){
+            unsigned long long chunk = gen(rd);
+            memcpy(data + (i * sizeof(unsigned long long)), &chunk, sizeof(unsigned long long));
+        }
 
-        Hashing::hash(hash, data, 32);
+        Hashing::hash(hash, data, len * sizeof(unsigned long long));
 
         std::string hashStr = std::string(hash, STATE_BUF_LEN);
         if(map.find(hashStr) != map.end()){
             char* hex;
-            cout << "Collision found after " << tries << " tries! Input strings \"" << map[hashStr] << "\" and \"" << (hex = toHex(data, 32)) << "\" both hash to (hex bytes) 0x" << toHex(hash, STATE_BUF_LEN) << "\n";
+            cout << "Collision found after " << tries << " tries! Input strings \"" << map[hashStr] << "\" and \"" << (hex = toHex(data, len)) << "\" both hash to (hex bytes) 0x" << toHex(hash, STATE_BUF_LEN) << "\n";
             delete[] hex;
             return;
         }
 
+        char* dataHex = toHex(data, len * sizeof(unsigned long long));
+        insert(map, static_cast<std::string>(hashStr), std::string(dataHex));
+        delete[] dataHex;
+
         tries++;
 
-        if(tries % 100000 == 0){
+        if(tries % 10000 == 0){
             char* hex;
-            printf("[BIRTHDAY MILESTONE] %u tries so far! Currently on string 0x%s\n", tries, (hex = toHex(data, 32)));
+            printf("[BIRTHDAY MILESTONE] %u tries so far! Currently on string 0x%s\n", tries, (hex = toHex(data, len * sizeof(unsigned long long))));
             delete[] hex;
         }
+
+        delete[] data;
     }
 }

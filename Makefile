@@ -11,10 +11,13 @@ comprun:
 
 # Use COMPILE_FLAGS to add things like -g for debugging
 compile:
-	g++ ${COMPILE_FLAGS} -O0 -std=c++17 -o test *.cpp include/SHA256/*.cpp
+	g++ ${COMPILE_FLAGS} -O0 -std=gnu++2a -o test *.cpp include/SHA256/*.cpp
 
 run:
 	./test
 
 runi:
 	./test -i
+
+windows_compile:
+	C:\cygwin64\bin\g++.exe -O0 -std=gnu++2a -o test.exe *.cpp include/SHA256/*.cpp

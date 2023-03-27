@@ -13,7 +13,6 @@ void Hashing::hash(char output[STATE_BUF_LEN], const char* input, const int leng
 
     unsigned char lbyte = 0x57; // Initalized to 0x57 to start, why not.
     for(uint8_t p = 0; p < PASSES; p++){
-
         
         for(uint32_t i = 0; i < newLength; i++){
             unsigned char cbyte = paddedInput[i];
@@ -30,18 +29,6 @@ void Hashing::hash(char output[STATE_BUF_LEN], const char* input, const int leng
                                                             // XOR the current state byte with the shifted state byte to add more pseudo-randomness.
             lbyte = state[RING_BUF_INDEX(i)]; // Pushes back the first found collision by 10,000. But it is still at 3 characters. 4 characters is the next milestone!
         }
-        
-
-        /* Loop through each 4-byte block */
-
-        /* 
-        unsigned char* block;
-        for(uint32_t blockIdx = 0; blockIdx * 4 < newLength && (block = paddedInput + (blockIdx * 4)); blockIdx++){
-            unsigned char lbyte = block[0] + block[1]; // left byte
-            unsigned char rbyte = block[2] + block[3]; // right byte
-            state[RING_BUF_INDEX(blockIdx)] += (lbyte ^ rbyte) + *(&lbyte + 1) | ~rbyte;
-        }       
-        */
     }
 
     delete[] paddedInput;
@@ -58,7 +45,6 @@ unsigned char* Hashing::padInput(const char* input, const uint32_t length, uint3
     unsigned char* paddedInput = new unsigned char[newLength = (length + paddedLength)];
 
     memcpy(paddedInput, input, length);
-
 
     // Pad with zeroes, finishing with the original length to prevent collisions
     memset(paddedInput + length, 0x00, paddedLength);
