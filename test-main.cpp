@@ -9,6 +9,16 @@
 #include <unordered_map>
 #include <random>
 #include <limits.h>
+// #include <sys/random.h> // Tried and failed to get Linux getrandom working on my WSL machine.
+                        // It will be easier to cross-platform in the future anyways without this
+
+#ifdef _MSC_VER
+    # include <intrin.h>
+#else
+    # include <x86intrin.h>
+#endif
+
+#define MARKUSED(X)  ((void)(&(X)))
 
 #define insert(map, k, v) map.insert(std::make_pair<std::string, std::string>(k, v))
 
@@ -24,13 +34,47 @@ void interrupt(int signum);
 void doInteractive(int withSHA256 = 0);
 void __strGenRecHelper(std::unordered_map<std::string, std::string>& map, std::string prefix, uint8_t len, short withSHA256 = 0);
 void doBirthdayAttack();
+inline uint64_t readTSCp();
+inline uint64_t readTSC();
 
 int main(int argc, char* argv[]){
     signal(SIGINT, interrupt);
     srand(time(NULL));
 
     if(argc > 1){
-        if(!strcmp(argv[1], "-i")){
+        if(!strcmp(argv[1], "--time-test")){
+            std::random_device rd;
+            std::uniform_int_distribution<unsigned long long> gen(0, ULLONG_MAX);
+            uint64_t sum50 = 0;
+            for(uint8_t i = 0; i < 50; i++){
+                int j = 0;
+                uint64_t start = readTSCp();
+                while(j < 1000){
+                    gen(rd);
+                    j++;
+                }
+                uint64_t end = readTSCp();
+                sum50 += (end - start);
+            }
+            printf("Average time (50 runs) to generate 1000 numbers with std::uniform_int_distribution: %llu\n", sum50 / 50ULL);
+            sum50 = 0;
+            for(uint8_t i = 0; i < 50; i++){
+                int j = 0;
+                uint64_t start = readTSCp();
+                while(j < 1000){
+                    uint32_t r = rand() % 5000;
+                    MARKUSED(r);
+                    j++;
+                }
+                uint64_t end = readTSCp();
+                sum50 += (end - start);
+            }
+            
+            printf("Average time (50 runs) to generate 1000 numbers with rand(): %llu\n", sum50 / 50ULL);
+            
+            exit(0);
+
+        } else if(!strcmp(argv[1], "-i")){
             if(argc > 2 && (!strcmp(argv[2], "sha256") || !strcmp(argv[2], "SHA256")))
                 doInteractive(1);
             else
@@ -53,8 +97,9 @@ int main(int argc, char* argv[]){
             return 0;
         }
 
-        if(!strcmp(argv[1], "birthday")){
+        if(!strcmp(argv[1], "--birthday")){
             doBirthdayAttack();
+            return 0;
         }
     }
 
@@ -74,6 +119,12 @@ char* toHex(const char* s, size_t len){
     for(size_t i = 0; i < len; i++)
         sprintf(buf + i*2, "%02X", (unsigned char)s[i]);
     return buf;
+}
+
+char* toHex(const char* s, size_t len, char output[]){
+    for(size_t i = 0; i < len; i++)
+        sprintf(output + i*2, "%02X", (unsigned char)s[i]);
+    return output;
 }
 
 void interrupt(int signum){
@@ -149,7 +200,6 @@ void doBirthdayAttack(){
     cout << "Starting birthday attack on my hash function. Will update every 10,000 tries.\n";
     std::random_device rd;
     std::uniform_int_distribution<uint16_t> lenGen(10, 1000); // Reduced from 10000 to increase speed
-    std::uniform_int_distribution<unsigned long long> gen(10, ULLONG_MAX);
 
     uint32_t tries = 0;
     std::unordered_map<std::string, std::string> map;
@@ -158,34 +208,52 @@ void doBirthdayAttack(){
 
     while(1){
         uint16_t len = lenGen(rd);
-        char* data = new char[len * sizeof(unsigned long long)];
-        for(int i = 0; i < len; i++){
-            unsigned long long chunk = gen(rd);
-            memcpy(data + (i * sizeof(unsigned long long)), &chunk, sizeof(unsigned long long));
+        char* data = new char[len];
+
+        // Single byte repeated rand() calling is MUCH faster than std::uniform_int_distribution generating entire chunks at a time, even with 8-byte chunks.
+        for(uint32_t i = 0; i < len; i++){
+            data[i] = rand() % 256;
         }
 
-        Hashing::hash(hash, data, len * sizeof(unsigned long long));
+        Hashing::hash(hash, data, len);
 
         std::string hashStr = std::string(hash, STATE_BUF_LEN);
         if(map.find(hashStr) != map.end()){
             char* hex;
-            cout << "Collision found after " << tries << " tries! Input strings \"" << map[hashStr] << "\" and \"" << (hex = toHex(data, len)) << "\" both hash to (hex bytes) 0x" << toHex(hash, STATE_BUF_LEN) << "\n";
+            cout << "[COLLISION] Collision found after " << tries << " tries! Input strings \"" << map[hashStr] << "\" and \"" << (hex = toHex(data, len)) << "\" both hash to (hex bytes) 0x" << toHex(hash, STATE_BUF_LEN) << "\n";
             delete[] hex;
             return;
         }
 
-        char* dataHex = toHex(data, len * sizeof(unsigned long long));
+
+        char dataHex[len * 2 + 1] = {'\0'};
+        toHex(data, len, dataHex);
         insert(map, static_cast<std::string>(hashStr), std::string(dataHex));
-        delete[] dataHex;
+        // delete[] dataHex;
 
         tries++;
 
         if(tries % 10000 == 0){
-            char* hex;
-            printf("[BIRTHDAY MILESTONE] %u tries so far! Currently on string 0x%s\n", tries, (hex = toHex(data, len * sizeof(unsigned long long))));
-            delete[] hex;
+            char hex[len * 2 + 1] = {'\0'};
+            printf("[BIRTHDAY MILESTONE] %u tries so far! Currently on string 0x%s\n", tries, (toHex(data, len, hex)));
         }
 
         delete[] data;
     }
+}
+
+
+// Below two functions taken from: https://stackoverflow.com/questions/9887839/how-to-count-clock-cycles-with-rdtsc-in-gcc-x86
+
+inline uint64_t readTSC(){
+    // _mm_lfence();  // optionally wait for earlier insns to retire before reading the clock
+    uint64_t tsc = __rdtsc();
+    // _mm_lfence();  // optionally block later instructions until rdtsc retires
+    return tsc;
+}
+
+// requires a Nehalem or newer CPU.  Not Core2 or earlier.  IDK when AMD added it.
+inline uint64_t readTSCp(){
+    unsigned dummy;
+    return __rdtscp(&dummy);  // waits for earlier insns to retire, but allows later to start
 }

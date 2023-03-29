@@ -11,7 +11,7 @@ comprun:
 
 # Use COMPILE_FLAGS to add things like -g for debugging
 compile:
-	g++ ${COMPILE_FLAGS} -O0 -std=gnu++2a -o test *.cpp include/SHA256/*.cpp
+	g++ ${COMPILE_FLAGS} -O0 -Wall -std=gnu++2a -o test *.cpp include/SHA256/*.cpp
 
 run:
 	./test
