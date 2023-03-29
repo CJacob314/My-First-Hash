@@ -127,6 +127,19 @@ char* toHex(const char* s, size_t len, char output[]){
     return output;
 }
 
+std::string toHex(std::string nonAsciiData){
+    size_t len = nonAsciiData.length();
+
+    char* buf = new char[len * 2];
+    for(size_t i = 0; i < len; i++)
+        sprintf(buf + i*2, "%02X", static_cast<unsigned char>(nonAsciiData[i]));
+    
+    std::string hex(buf, len * 2);
+    delete[] buf;
+
+    return hex;
+}
+
 void interrupt(int signum){
     // Clear the ^C, print exiting message, and exit.
     puts("\b\b  \rInterrupt signal received. Exiting...");
@@ -218,18 +231,18 @@ void doBirthdayAttack(){
         Hashing::hash(hash, data, len);
 
         std::string hashStr = std::string(hash, STATE_BUF_LEN);
+        std::string dataStr = std::string(data, len);
         if(map.find(hashStr) != map.end()){
-            char* hex;
-            cout << "[COLLISION] Collision found after " << tries << " tries! Input strings \"" << map[hashStr] << "\" and \"" << (hex = toHex(data, len)) << "\" both hash to (hex bytes) 0x" << toHex(hash, STATE_BUF_LEN) << "\n";
-            delete[] hex;
+            if(!memcmp(map[hashStr].c_str(), data, len)){
+                continue; // If the inputs are the same, we didn't find a collision.
+                          // Don't increment tries as we've already tried this input.
+            }
+            char thisHex[len * 2 + 1] = {'\0'};
+            cout << "[COLLISION] Collision found after " << tries << " tries! Input bytes \n\t0x" << toHex(map[hashStr]) << " and \n\t0x" << (toHex(data, len, thisHex)) << "\nboth hash to 0x" << toHex(hash, STATE_BUF_LEN) << "\n";
             return;
         }
 
-
-        char dataHex[len * 2 + 1] = {'\0'};
-        toHex(data, len, dataHex);
-        insert(map, static_cast<std::string>(hashStr), std::string(dataHex));
-        // delete[] dataHex;
+        insert(map, static_cast<std::string>(hashStr), static_cast<std::string>(dataStr));
 
         tries++;
 
