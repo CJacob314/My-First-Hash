@@ -13,8 +13,9 @@ namespace Hashing {
             memcpy((void*)state, (const void*)&stateDefault, STATE_BUF_LEN);
         }
 
-        unsigned char* padInput(const char* input, const uint32_t length, uint32_t& newLength){
+        unsigned char* padInput(const char* input, const uint32_t length, uint32_t& newLength, bool& padded){
             uint32_t paddedLength = 512 - (length % 512);
+            padded = false;
 
             if(!paddedLength) // No need to pad if already a multiple of 512
                 return (unsigned char*)input;
@@ -27,6 +28,7 @@ namespace Hashing {
             memset(paddedInput + length, 0x00, paddedLength);
             memcpy(paddedInput + length + paddedLength - 4, &length, 4);
 
+            padded = true;
             return paddedInput;
         }
     }
@@ -35,7 +37,8 @@ namespace Hashing {
         clearState();
 
         uint32_t newLength = 0;
-        unsigned char* paddedInput = padInput(input, length, newLength);
+        bool padded;
+        unsigned char* paddedInput = padInput(input, length, newLength, padded);
 
         unsigned char lbyte = 0x57; // Initalized to 0x57 to start, why not.
         for(uint8_t p = 0; p < PASSES; p++){
@@ -57,7 +60,10 @@ namespace Hashing {
             }
         }
 
-        delete[] paddedInput;
+        if(padded){
+            delete[] paddedInput;
+            paddedInput = nullptr;
+        }
 
         memcpy(output, state, STATE_BUF_LEN);
     }

@@ -81,6 +81,13 @@ int main(int argc, char* argv[]){
                 doInteractive(0);
 
             return 0;
+        } else if(!strcmp(argv[1], "--test-multiple")){
+            std::string len = std::string(4096, 'a');
+            std::cout << "Hashing " << len.size() << "-length string of all 'a's...\n\tNo padding will be needed!\n";
+            char hash[STATE_BUF_LEN];
+            Hashing::hash(hash, len.c_str(), len.size());
+            std::cout << "\tHash: " << toHex(hash, STATE_BUF_LEN) << "\n";
+            return 0;
         }
 
         // SHA256 code from: https://github.com/System-Glitch/SHA256.git
