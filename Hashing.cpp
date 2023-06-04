@@ -47,7 +47,8 @@ namespace Hashing {
                 unsigned char cbyte = paddedInput[i];
 
                 // Overflows in the state-buffer are INTENTIONAL to make reversal SLIGHTLY more difficult
-                state[RING_BUF_INDEX(i)] += (cbyte ^ (lbyte)) + *(&cbyte + 1);
+                // The below LONG array access of paddedInput is a replica of the RING_BUF_INDEX function but with loop around the length of paddedInput, instead of the state buffer.
+                state[RING_BUF_INDEX(i)] += (cbyte ^ (lbyte)) + paddedInput[(signed int)(i) % newLength < 0 ? (signed int)(i) % newLength + newLength : (signed int)(i) % newLength];
 
                 // Below lines are INSPIRED by MD6's compression function as listed in the MIT paper: https://people.csail.mit.edu/rivest/pubs/RABCx08.pdf
                 state[RING_BUF_INDEX(i)] ^= (state[RING_BUF_INDEX(i - 1)] ^ state[RING_BUF_INDEX(i - 2)]) ^ state[RING_BUF_INDEX(i - 3)];
